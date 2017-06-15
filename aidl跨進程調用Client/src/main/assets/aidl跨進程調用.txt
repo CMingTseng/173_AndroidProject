@@ -1,0 +1,22 @@
+﻿這兩天在學習aidl跨進程調用，研究了一天終於寫出了個helloword。。做下記錄吧。
+
+根據官方提供的指南，開發aidl跨進程調用，主要分以下步驟：
+1.         創建.aidl文件-該文件（YourInterface.aidl）定義了用戶端可用的方法和資料的介面。
+2.         在makefile文件中加入.aidl檔-（Eclipse中的ADT外掛程式提供管理功能）Android包括名為AIDL的編譯器，位於tools/資料夾。
+3.         實現介面-AIDL編譯器從AIDL介面檔中利用Java語言創建介面，該介面有一個繼承的命名為Stub的內部抽象類別（並且實現了一些IPC調用的附加方法），要做的就是創建一個繼承YourInterface.Stub的類並且實現在.aidl檔中聲明的方法。
+4.         向用戶端公開介面-如果是編寫服務，應該繼承Service並且重載Service.onBind(Intent) 以返回實現了介面的物件實例
+
+上面的東西真的很官方。。下面結合我的例子做一下學習總結：
+先開發伺服器端
+1.創建一個aidl檔，可以看提供的源碼。創建完成後，eclipse外掛程式自動在gen目錄下生成同名字的java檔。裡面包含一個Stub抽象類別，這個類繼承自android.os.Binder，這個類是實現整個遠端調用的核心。
+2.然後創建一個類來繼承上面說到的那個Stub抽象類別，實現裡面的抽象方法。（這些抽象方法是根據aidl檔自動生成的）。
+3.創建一個自訂Service繼承自Service，實現其onBind方法，注意此onBind方法必須返回第二步創建的那個Stub類的子類。然後在xml中聲明此service，注意此service的聲明必須包含一個action，此action也用於用戶端的調用使用。（在下面的用戶端開發中會有介紹）。
+4.創建一個activity，此activity只要實現把service啟動了即可。
+這樣伺服器端就開發完畢，運行後啟動了一個可供遠端調用的service。關鍵還是通過onBind暴露一個Binder給用戶端。Binder哪來呢？就是通過aidl檔adt會自動生成一個抽象類別Stub繼承自Binder，只需要創建一個類實現這個Stub的抽象方法即可。
+
+然後開發用戶端：
+1.用戶端也需要一個aidl檔，注意用戶端的aidl檔的包名必須和伺服器端的aidl包名一致，名字也相同。創建完後同樣會在gen下生成一個介面。
+2.創建一個Activity，包含變數ServiceConnection con，實現其onServiceConnected和onServiceDisconnected方法，onServiceConnected方法生成第一步那個介面的實現類的物件。con物件用於在onCreate中綁定service，這個service的action必須為伺服器端聲明的那個service的配置action。綁定中用到con會執行onServiceConnected方法生成aidl物件iPerson。然後就可以通過iPerson來調用aidl裡的任意方法返回伺服器的東西。
+用戶端開發完畢。關鍵點是創建aidl檔自動生成了一個介面，在activity中必須綁定服務程式開啟的service，在綁定過程中初始化aidl物件。然後就可用aidl物件調用任意方法了。
+
+OK，可以運行看效果了。過程真的很繁瑣。。但是好像也只能這樣了。最主要的還是服務端onBind暴露，然後用戶端bindService得到aidl對象。
